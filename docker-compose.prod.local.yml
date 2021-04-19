@@ -1,0 +1,239 @@
+version: '3.7'
+
+services:
+  list_nginx_prod:
+    container_name: ${NGINX_CONTAINER_NAME}
+    # image: ${NGINX_CONTAINER_IMAGE_NAME}
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.prod
+    restart: on-failure:1
+    # restart: unless-stopped
+    # restart:
+    #   condition: on-failure
+    #   max-attempts: 1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 50M
+        # reservations:
+        #   cpus: '0.0001'
+        #   memory: 20M
+    volumes:
+      - frontend_media_volume:/home/app/front/mediafiles
+      - frontend_static_volume:/home/app/front/staticfiles
+      - rapi_media_volume:/home/app/rapi/mediafiles
+      - rapi_static_volume:/home/app/rapi/staticfiles
+    #   # - ${APP_DATA}/:/usr/src/app/
+    ports:
+    #  - 80:8000
+      - 8080:80
+    # expose:
+    #   - 80
+    # environment:
+    #   VIRTUAL_HOST: ${VIRTUAL_HOST}
+    #   #VIRTUAL_NETWORK: ${VIRTUAL_NETWORK}
+    #   VIRTUAL_PORT: ${VIRTUAL_PORT}
+    #   LETSENCRYPT_HOST: ${LETSENCRYPT_HOST}
+    #   LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    depends_on:
+      - list_front_prod
+    networks:
+      - nginx-proxy-net
+      - list_prod_net
+
+  list_front_prod:
+    container_name: ${FRONT_CONTAINER_NAME}
+    # image: ${FRONT_CONTAINER_IMAGE_NAME}
+    build:
+      context: ../list-fe
+      dockerfile: Dockerfile.prod
+    restart: on-failure:1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 200M
+    # command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn p_list_fe.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - frontend_media_volume:/usr/src/app/mediafiles
+      - frontend_static_volume:/usr/src/app/staticfiles
+      # - ${APP_DATA}/:/usr/src/app/
+    # ports:
+    #  - 8000:80
+    expose:
+      - 8000
+    environment:
+      DJANGO_DEBUG: ${FRONT_DEBUG}
+      DJANGO_SECRET_KEY: ${FRONT_SECRET_KEY}
+      DJANGO_ALLOWED_HOSTS: ${FRONT_DJANGO_ALLOWED_HOSTS}
+      MY_PROJECT_SETTING: ${FRONT_PROJECT_SETTING}
+      PSQL_ENGINE: ${FRONT_SQL_ENGINE}
+      PSQL_DATABASE: ${FRONT_SQL_DATABASE}
+      PSQL_USER: ${FRONT_SQL_USER}
+      PSQL_PASSWORD: ${FRONT_SQL_PASSWORD}
+      PSQL_HOST: ${FRONT_SQL_HOST}
+      PSQL_PORT: ${FRONT_SQL_PORT}
+      USING_DB: ${FRONT_USING_DB}
+      DATABASE: ${FRONT_DATABASE}
+      AUTH_HOST: ${AUTH_HOST}
+      RAPI_HOST: ${RAPI_HOST}
+      # OTHERMS_HOST: ${OTHERMS_HOST}
+      RECAPTCHA_PUBLIC_KEY: ${FRONT_RECAPTCHA_PUBLIC_KEY}
+      RECAPTCHA_PRIVATE_KEY: ${FRONT_RECAPTCHA_PRIVATE_KEY}
+      INTERNAL_IPS: ${FRONT_INTERNAL_IPS}
+      DEFENDER_REDIS_URL: ${FRONT_DEFENDER_REDIS_URL}
+      DEFENDER_COOLOFF_TIME: ${FRONT_DEFENDER_COOLOFF_TIME}
+      # Open ID
+      ClientID: ${ClientID}
+      ClientSecret: ${ClientSecret}
+      RedirectUri: ${RedirectUri}
+      Scope: ${Scope}
+      ResponseType: ${ResponseType}
+    depends_on:
+      - listrapiprod
+    networks:
+      - list_prod_net
+
+  listrapiprod:
+    container_name: ${RAPI_CONTAINER_NAME}
+    # image: ${RAPI_CONTAINER_IMAGE_NAME}
+    build:
+      context: ../list-rapi
+      dockerfile: Dockerfile.prod
+    restart: on-failure:1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 200M
+    # command: python manage.py runserver 0.0.0.0:8001
+    command: gunicorn p_list_rapi.wsgi:application --bind 0.0.0.0:8001
+    volumes:
+      - rapi_media_volume:/usr/src/app/mediafiles
+      - rapi_static_volume:/usr/src/app/staticfiles
+      # - ${APP_DATA}/:/usr/src/app/
+    # ports:
+    #  - 8001:80
+    expose:
+      - 8001
+    environment:
+      DJANGO_DEBUG: ${RAPI_DEBUG}
+      DJANGO_SECRET_KEY: ${RAPI_SECRET_KEY}
+      DJANGO_ALLOWED_HOSTS: ${RAPI_DJANGO_ALLOWED_HOSTS}
+      MY_PROJECT_SETTING: ${RAPI_PROJECT_SETTING}
+      PSQL_ENGINE: ${RAPI_SQL_ENGINE}
+      PSQL_DATABASE: ${RAPI_SQL_DATABASE}
+      PSQL_USER: ${RAPI_SQL_USER}
+      PSQL_PASSWORD: ${RAPI_SQL_PASSWORD}
+      PSQL_HOST: ${RAPI_SQL_HOST}
+      PSQL_PORT: ${RAPI_SQL_PORT}
+      DATABASE: ${RAPI_DATABASE}
+      USING_DB: ${RAPI_USING_DB}
+      AUTH_HOST: ${AUTH_HOST}
+      RECAPTCHA_PUBLIC_KEY: ${RAPI_RECAPTCHA_PUBLIC_KEY}
+      RECAPTCHA_PRIVATE_KEY: ${RAPI_RECAPTCHA_PRIVATE_KEY}
+      INTERNAL_IPS: ${RAPI_INTERNAL_IPS}
+      DEFENDER_REDIS_URL: ${FRONT_DEFENDER_REDIS_URL}
+      DEFENDER_COOLOFF_TIME: ${RAPI_DEFENDER_COOLOFF_TIME}
+      # EMAIL_HOST: ${RAPI_EMAIL_HOST}
+      # EMAIL_HOST_USER: ${RAPI_EMAIL_HOST_USER}
+      # EMAIL_HOST_PASSWORD: ${RAPI_EMAIL_HOST_PASSWORD}
+      # EMAIL_PORT: ${RAPI_EMAIL_PORT}
+      # EMAIL_USE_TLS: ${RAPI_EMAIL_USE_TLS}
+    depends_on:
+      - list_db_prod
+    networks:
+      - list_prod_net
+
+  list_db_prod:
+    container_name: ${DB_CONTAINER_NAME}
+    image: postgres:12.0-alpine
+    restart: on-failure:1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 200M
+    volumes:
+      # - postgres_data:/var/lib/postgresql/data/
+      - ${PG_DATA}/pgdata:/var/lib/postgresql/data
+      - ${PG_DATA}/pgconf:/etc/postgresql
+      - ${PG_DATA}/pglog:/var/log/postgresql
+      - ./postgres/create_second_db.prod.sh:/docker-entrypoint-initdb.d/create_second_db.prod.sh
+    environment:
+      POSTGRES_DB: ${RAPI_SQL_DATABASE}
+      POSTGRES_USER: ${RAPI_SQL_USER}
+      POSTGRES_PASSWORD: ${RAPI_SQL_PASSWORD}
+    networks:
+      - list_prod_net
+
+  # list_pgadmin_prod:
+  #   container_name: list_pgadmin_prod
+  #   image: dpage/pgadmin4
+  #   restart: on-failure:3
+  #   environment: 
+  #       PGADMIN_DEFAULT_EMAIL: "test@gmail.com"
+  #       PGADMIN_DEFAULT_PASSWORD: "test123!"
+  #   # ports: 
+  #   #     - "16543:80"
+  #   expose:
+  #     - 80
+  #   depends_on: 
+  #       - list_db_prod
+
+  list_redis_prod:
+    container_name: ${REDIS_CONTAINER_NAME}
+    # container_name: cache
+    image: redis:latest
+    restart: on-failure:1
+    # restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 100M
+    expose:
+      - 6379
+    networks:
+      - list_prod_net
+
+volumes:
+  frontend_media_volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${FRONT_DATA}/mediafiles/
+      o: bind
+  frontend_static_volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${FRONT_DATA}/staticfiles/
+      o: bind
+  rapi_media_volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${RAPI_DATA}/mediafiles/
+      o: bind
+  rapi_static_volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${RAPI_DATA}/staticfiles/
+      o: bind
+
+networks:
+  # default:
+  #   external:
+  #     name: ${NETWORK}
+  # front_default:
+  #   external: true
+  nginx-proxy-net:
+    external:
+      name: ${NETWORK}
+  list_prod_net:
+    name: list_prod_net

@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  web:
+    image: nginx:alpine
+    container_name: test-webapp
+    expose:
+      - 80
+    environment:
+      VIRTUAL_HOST: ${VIRTUAL_HOST}
+      #VIRTUAL_NETWORK: ${VIRTUAL_NETWORK}
+      VIRTUAL_PORT: ${VIRTUAL_PORT}
+      LETSENCRYPT_HOST: ${LETSENCRYPT_HOST}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    restart: always
+    networks:
+      - nginx-proxy-net
+
+networks:
+  nginx-proxy-net:
+    external:
+      name: ${NETWORK}
+#  default:
+#    external:
+#      name: nginx-proxy

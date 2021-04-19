@@ -1,0 +1,12 @@
+# LIST nginx proxy image
+# Usage Url with / handled by frontend & /api/ hadled by rapi authentication server
+
+FROM nginx:1.19.0-alpine
+
+# extra metadata
+LABEL version="1.0"
+LABEL description="Image for LIST frontend."
+LABEL author="Parth Dabhi"
+
+RUN rm /etc/nginx/conf.d/default.conf
+COPY nginx.prod.conf /etc/nginx/conf.d
